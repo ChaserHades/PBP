@@ -1,0 +1,218 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  TEKNISI
+  UNIVERSITAS
+}
+
+enum StatusVerifikasi {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum KondisiBarang {
+  BAIK
+  RUSAK_RINGAN
+  RUSAK_BERAT
+}
+
+enum StatusBarang {
+  TERSEDIA
+  DIPINJAM
+  MAINTENANCE
+}
+
+enum StatusPeminjaman {
+  AKTIF
+  SELESAI
+}
+
+enum JenisPengeluaran {
+  PEMBELIAN_ASET
+  MAINTENANCE
+  LAINNYA
+}
+
+model User {
+  id                 String           @id @default(cuid())
+  name               String?
+  email              String           @unique
+  password           String?
+  provider           String           @default("credentials")
+  role               Role             @default(TEKNISI)
+  statusVerifikasi   StatusVerifikasi @default(PENDING)
+  mustChangePassword Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  peminjaman         Peminjaman[]
+  pengeluaran        Pengeluaran[]
+  logAktivitas       LogAktivitas[]
+
+  @@map("users")
+}
+
+model Kategori {
+  id         String   @id @default(cuid())
+  nama       String   @unique
+  keterangan String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  barang     Barang[]
+
+  @@map("kategori")
+}
+
+model Ruangan {
+  id        String   @id @default(cuid())
+  kode      String   @unique
+  nama      String
+  lantai    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  barang    Barang[]
+
+  @@map("ruangan")
+}
+
+model Barang {
+  id            String        @id @default(cuid())
+  /// Nama deskriptif aset, misal "MacBook Pro M3 16inch"
+  namaBarang    String?
+  /// Program Studi pemilik aset, misal "Teknik Informatika (S1)"
+  progdi        String?
+  label         String?
+  labelAset     String?
+  sn            String?
+  merek         String?
+  model         String?
+  tipe          String?
+  vendor        String?
+  keterangan    String?
+  kondisi       KondisiBarang @default(BAIK)
+  status        StatusBarang  @default(TERSEDIA)
+  jumlah        Int           @default(1)
+  tanggalDatang DateTime?
+  tanggalPindah DateTime?
+  harga         Float?
+  sumberTahun   String?
+  /// Urutan pembelian di bulan/tahun yang sama, untuk generate kode label
+  pembelianKe   Int?
+  /// true = barang punya sticker/barcode fisik (diregister via scan)
+  hasSticker    Boolean       @default(false)
+  /// QR image data URL — hanya ada jika di-generate dari sistem
+  qrCode        String?
+  foto          String?
+  kategoriId          String
+  ruanganId           String?
+  pengeluaranId       String?
+  kelompokPembelianId String?
+  deletedAt           DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  kategori            Kategori      @relation(fields: [kategoriId], references: [id])
+  ruangan             Ruangan?      @relation(fields: [ruanganId], references: [id])
+  pengeluaran         Pengeluaran?  @relation(fields: [pengeluaranId], references: [id])
+  kelompokPembelian   KelompokPembelian? @relation(fields: [kelompokPembelianId], references: [id])
+  peminjaman          Peminjaman[]
+
+  @@map("barang")
+}
+
+model Peminjaman {
+  id              String           @id @default(cuid())
+  barangId        String
+  userId          String
+  /// Peminjam aktual (mahasiswa/dosen/staf) — diisi petugas via modal
+  namaPeminjam    String
+  /// Ruangan/Letak tujuan penggunaan — free-text
+  ruanganTujuan   String
+  tanggalPinjam   DateTime         @default(now())
+  tanggalKembali  DateTime?
+  deadlineKembali DateTime
+  status          StatusPeminjaman @default(AKTIF)
+  /// Persisten: true jika pernah melewati deadline, tidak di-reset saat dikembalikan
+  terlambat       Boolean          @default(false)
+  catatan         String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  barang          Barang           @relation(fields: [barangId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+
+  @@map("peminjaman")
+}
+
+model Pengeluaran {
+  id             String           @id @default(cuid())
+  judul          String
+  namaBarang     String?
+  progdi         String?
+  deskripsi      String?
+  nominal        Float
+  tanggal        DateTime
+  jenis          JenisPengeluaran
+  /// Jenis dokumen bukti pembayaran: SPB, KWITANSI, NOTA
+  jenisBukti     String?
+  /// Nomor dokumen bukti pembayaran, bebas karakter (e.g. "03/290-12")
+  nomorBukti     String?
+  /// Path ke file nota/receipt (opsional — jpg, pdf, docx)
+  notaUrls       String[]         @default([])
+  /// Kode pembelian auto-generated: {JENIS}-{NOMOR}-mmyyyy-nnn
+  kodePembelian  String?
+  /// Urutan pembelian ke-berapa di bulan tersebut
+  pembelianKe    Int?
+  userId              String
+  kelompokPembelianId String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  user                User             @relation(fields: [userId], references: [id])
+  barang              Barang[]
+  kelompokPembelian   KelompokPembelian? @relation(fields: [kelompokPembelianId], references: [id])
+
+  @@map("pengeluaran")
+}
+
+enum AksiLog {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+}
+
+model LogAktivitas {
+  id        String   @id @default(cuid())
+  aksi      AksiLog
+  entitas   String   @default("BARANG") // BARANG, RUANGAN, KATEGORI, PENGELUARAN
+  entitasId String?
+  detail    String   // Menyimpan ringkasan perubahan/nama barang
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("log_aktivitas")
+}
+
+model KelompokPembelian {
+  id          String   @id @default(cuid())
+  kode        String   @unique
+  tanggal     DateTime
+  pembelianKe Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  barang      Barang[]
+  pengeluaran Pengeluaran[]
+
+  @@map("kelompok_pembelian")
+}
+
