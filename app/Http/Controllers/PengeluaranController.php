@@ -3,21 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Barang;
-use App\Models\KelompokPembelian;
 use App\Models\LogAktivitas;
 use App\Models\Pengeluaran;
 use App\Services\LabelGeneratorService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class PengeluaranController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Pengeluaran::with(['user', 'kelompokPembelian.barang']);
+        $query = Pengeluaran::with(['user:id,name'])->withCount('barang');
 
         if ($request->filled('jenis')) {
             $query->where('jenis', $request->jenis);
@@ -27,13 +25,13 @@ class PengeluaranController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('judul', 'like', "%{$search}%")
-                  ->orWhere('nama_barang', 'like', "%{$search}%")
-                  ->orWhere('nomor_bukti', 'like', "%{$search}%")
-                  ->orWhere('kode_pembelian', 'like', "%{$search}%");
+                    ->orWhere('nama_barang', 'like', "%{$search}%")
+                    ->orWhere('nomor_bukti', 'like', "%{$search}%")
+                    ->orWhere('kode_pembelian', 'like', "%{$search}%");
             });
         }
 
-        $pengeluarans = $query->latest('tanggal')->paginate(15)->withQueryString();
+        $pengeluarans = $query->latest('tanggal')->paginate(50)->withQueryString();
         $totalNominal = Pengeluaran::sum('nominal');
 
         return view('pengeluaran.index', compact('pengeluarans', 'totalNominal'));
@@ -42,7 +40,10 @@ class PengeluaranController extends Controller
     public function create()
     {
         // Candidate assets yang belum memiliki pengeluaran
-        $candidateBarang = Barang::whereNull('pengeluaran_id')->latest()->get();
+        $candidateBarang = Barang::whereNull('pengeluaran_id')
+            ->select(['id', 'nama_barang', 'label', 'harga', 'created_at'])
+            ->latest()
+            ->get();
 
         return view('pengeluaran.create', compact('candidateBarang'));
     }
@@ -79,7 +80,7 @@ class PengeluaranController extends Controller
         // Auto Kode Pembelian: {JENIS}-{NOMOR}-{MMYYYY}-{NNN}
         $jenisBukti = strtoupper($validated['jenis_bukti'] ?? 'NOTA');
         $nomorBukti = preg_replace('/[^a-zA-Z0-9\-\/]/', '', $validated['nomor_bukti'] ?? '01');
-        $kodePembelian = "{$jenisBukti}-{$nomorBukti}-" . $kelompokPembelian->kode;
+        $kodePembelian = "{$jenisBukti}-{$nomorBukti}-".$kelompokPembelian->kode;
 
         $pengeluaran = Pengeluaran::create([
             'judul' => $validated['judul'],
@@ -99,23 +100,28 @@ class PengeluaranController extends Controller
         ]);
 
         // Sinkronisasi aset terkait
-        if (!empty($validated['barang_ids'])) {
+        if (! empty($validated['barang_ids'])) {
             Barang::whereIn('id', $validated['barang_ids'])->update([
                 'pengeluaran_id' => $pengeluaran->id,
                 'kelompok_pembelian_id' => $kelompokPembelian->id,
             ]);
         }
 
-        LogAktivitas::catat('CREATE', 'PENGELUARAN', $pengeluaran->id, "Pencatatan pengeluaran: {$pengeluaran->judul} (Nominal: Rp " . number_format($pengeluaran->nominal, 0, ',', '.') . ")");
+        LogAktivitas::catat('CREATE', 'PENGELUARAN', $pengeluaran->id, "Pencatatan pengeluaran: {$pengeluaran->judul} (Nominal: Rp ".number_format($pengeluaran->nominal, 0, ',', '.').')');
 
         return redirect()->route('pengeluaran.index')->with('success', 'Data pengeluaran berhasil dicatat!');
     }
 
     public function show($id)
     {
-        $pengeluaran = Pengeluaran::with(['user', 'kelompokPembelian', 'barang.kategori', 'barang.ruangan'])->findOrFail($id);
+        $pengeluaran = Pengeluaran::with(['user:id,name', 'kelompokPembelian:id,kode'])->findOrFail($id);
+        $barangTerkait = $pengeluaran->barang()
+            ->select(['id', 'nama_barang', 'label', 'status', 'pengeluaran_id'])
+            ->latest()
+            ->paginate(50, ['*'], 'aset_page')
+            ->withQueryString();
 
-        return view('pengeluaran.show', compact('pengeluaran'));
+        return view('pengeluaran.show', compact('pengeluaran', 'barangTerkait'));
     }
 
     public function destroy($id)

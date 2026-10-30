@@ -131,11 +131,9 @@
             </table>
         </div>
 
-        @if($peminjamans->hasPages())
-            <div class="p-3.5 border-t border-slate-800">
-                {{ $peminjamans->links() }}
-            </div>
-        @endif
+        <div class="p-3.5 border-t border-slate-800/80 bg-slate-900/40">
+            {{ $peminjamans->links() }}
+        </div>
     </div>
 </div>
 @endsection

@@ -66,9 +66,10 @@
         @endif
 
         <div class="pt-3 border-t border-slate-800">
-            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Aset Fisik Terhubung ({{ $pengeluaran->barang->count() }})</h3>
+            @php $asetItems = $barangTerkait ?? $pengeluaran->barang; @endphp
+            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Aset Fisik Terhubung ({{ isset($barangTerkait) ? $barangTerkait->total() : $asetItems->count() }})</h3>
             <div class="space-y-1.5">
-                @forelse($pengeluaran->barang as $b)
+                @forelse($asetItems as $b)
                     <div class="p-2.5 rounded-md bg-slate-950/60 border border-slate-800 flex items-center justify-between text-xs">
                         <div>
                             <a href="{{ route('barang.show', $b->id) }}" class="font-medium text-slate-200 hover:text-blue-400">
@@ -82,6 +83,12 @@
                     <div class="text-xs text-slate-500">Tidak ada aset fisik yang ditautkan ke transaksi ini.</div>
                 @endforelse
             </div>
+
+            @if(isset($barangTerkait) && $barangTerkait->total() > 0)
+                <div class="pt-3 mt-3 border-t border-slate-800/80">
+                    {{ $barangTerkait->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>

@@ -4,12 +4,19 @@ namespace App\Models;
 
 use App\Models\Traits\HasStringId;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @mixin Builder
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static> onlyTrashed()
+ * @method static \Illuminate\Database\Eloquent\Builder<static> withTrashed(bool $withTrashed = true)
+ */
 class Barang extends Model
 {
     use HasFactory, HasStringId, SoftDeletes;
@@ -139,7 +146,7 @@ class Barang extends Model
 
     public function isRecoverable(): bool
     {
-        if (!$this->trashed()) {
+        if (! $this->trashed()) {
             return false;
         }
 
@@ -148,7 +155,7 @@ class Barang extends Model
 
     public function isExpired(): bool
     {
-        if (!$this->trashed()) {
+        if (! $this->trashed()) {
             return false;
         }
 

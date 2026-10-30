@@ -20,13 +20,16 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     if (Auth::check()) {
         $user = Auth::user();
+
         return match ($user->role) {
-            'SUPERADMIN', 'ADMIN' => redirect()->route('admin.dashboard'),
+            'SUPERADMIN' => redirect()->route('superadmin.dashboard'),
+            'ADMIN' => redirect()->route('admin.dashboard'),
             'TEKNISI' => redirect()->route('petugas.dashboard'),
             'UNIVERSITAS' => redirect()->route('universitas.dashboard'),
             default => redirect()->route('login'),
         };
     }
+
     return redirect()->route('login');
 });
 
@@ -59,6 +62,10 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'verified_account', 'force_password_change'])->group(function () {
 
     // Role-specific Dashboards
+    Route::get('/superadmin/dashboard', [DashboardController::class, 'superadmin'])
+        ->middleware('role:SUPERADMIN')
+        ->name('superadmin.dashboard');
+
     Route::get('/admin/dashboard', [DashboardController::class, 'admin'])
         ->middleware('role:ADMIN,SUPERADMIN')
         ->name('admin.dashboard');

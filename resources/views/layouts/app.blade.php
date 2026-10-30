@@ -28,6 +28,10 @@
                     <nav class="hidden md:flex items-center gap-1 text-xs font-medium text-slate-300">
                         @php $role = auth()->user()->role; @endphp
 
+                        @if($role === 'SUPERADMIN')
+                            <a href="{{ route('superadmin.dashboard') }}" class="px-3 py-1.5 rounded-md transition {{ request()->routeIs('superadmin.dashboard') ? 'bg-blue-600/15 text-blue-400 font-semibold' : 'hover:text-white hover:bg-slate-800/60' }}">Sistem</a>
+                        @endif
+
                         @if(in_array($role, ['SUPERADMIN', 'ADMIN']))
                             <a href="{{ route('admin.dashboard') }}" class="px-3 py-1.5 rounded-md transition {{ request()->routeIs('admin.dashboard') ? 'bg-blue-600/15 text-blue-400 font-semibold' : 'hover:text-white hover:bg-slate-800/60' }}">Dashboard</a>
                         @elseif($role === 'TEKNISI')

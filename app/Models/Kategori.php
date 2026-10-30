@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use App\Models\Traits\HasStringId;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @mixin Builder
+ */
 class Kategori extends Model
 {
     use HasFactory, HasStringId;

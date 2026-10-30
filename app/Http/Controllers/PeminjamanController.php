@@ -14,7 +14,10 @@ class PeminjamanController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Peminjaman::with(['barang', 'user']);
+        $query = Peminjaman::with([
+            'barang:id,nama_barang,label,label_aset,deleted_at',
+            'user:id,name',
+        ]);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -28,23 +31,27 @@ class PeminjamanController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama_peminjam', 'like', "%{$search}%")
-                  ->orWhere('ruangan_tujuan', 'like', "%{$search}%")
-                  ->orWhereHas('barang', function ($bq) use ($search) {
-                      $bq->where('nama_barang', 'like', "%{$search}%")
-                         ->orWhere('label', 'like', "%{$search}%")
-                         ->orWhere('label_aset', 'like', "%{$search}%");
-                  });
+                    ->orWhere('ruangan_tujuan', 'like', "%{$search}%")
+                    ->orWhereHas('barang', function ($bq) use ($search) {
+                        $bq->where('nama_barang', 'like', "%{$search}%")
+                            ->orWhere('label', 'like', "%{$search}%")
+                            ->orWhere('label_aset', 'like', "%{$search}%");
+                    });
             });
         }
 
-        $peminjamans = $query->latest('tanggal_pinjam')->paginate(15)->withQueryString();
+        $peminjamans = $query->latest('tanggal_pinjam')->paginate(50)->withQueryString();
 
         return view('peminjaman.index', compact('peminjamans'));
     }
 
     public function create()
     {
-        $barangs = Barang::where('status', 'TERSEDIA')->orderBy('nama_barang')->get();
+        $barangs = Barang::where('status', 'TERSEDIA')
+            ->select(['id', 'nama_barang', 'label', 'ruangan_id'])
+            ->with('ruangan:id,nama')
+            ->orderBy('nama_barang')
+            ->get();
 
         return view('peminjaman.create', compact('barangs'));
     }
@@ -107,14 +114,14 @@ class PeminjamanController extends Controller
             $barang = Barang::withTrashed()->find($peminjaman->barang_id);
 
             // Sesuai aturan: jika aset sedang soft-deleted, statusnya TIDAK diubah kembali ke TERSEDIA
-            if ($barang && !$barang->trashed()) {
+            if ($barang && ! $barang->trashed()) {
                 $barang->update(['status' => 'TERSEDIA']);
             }
 
             $ketTerlambat = $isTerlambat ? ' [TERLAMBAT]' : '';
             LogAktivitas::catat('UPDATE', 'PEMINJAMAN', $peminjaman->id, "Pengembalian peminjaman aset {$barang?->nama_barang} oleh {$peminjaman->nama_peminjam}{$ketTerlambat}");
 
-            return redirect()->route('peminjaman.index')->with('success', 'Pengembalian barang berhasil diproses' . ($isTerlambat ? ' (Status: Terlambat).' : '.'));
+            return redirect()->route('peminjaman.index')->with('success', 'Pengembalian barang berhasil diproses'.($isTerlambat ? ' (Status: Terlambat).' : '.'));
         });
     }
 }

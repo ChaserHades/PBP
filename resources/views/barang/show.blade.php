@@ -127,7 +127,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($barang->peminjaman as $loan)
+                            @php $loanItems = $riwayatPeminjaman ?? $barang->peminjaman; @endphp
+                            @forelse($loanItems as $loan)
                                 <tr>
                                     <td class="font-medium text-slate-200">{{ $loan->nama_peminjam }}</td>
                                     <td class="text-slate-300">{{ $loan->ruangan_tujuan }}</td>
@@ -152,6 +153,12 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if(isset($riwayatPeminjaman) && $riwayatPeminjaman->total() > 0)
+                    <div class="pt-3 mt-3 border-t border-slate-800/80">
+                        {{ $riwayatPeminjaman->links() }}
+                    </div>
+                @endif
             </div>
         </div>
 

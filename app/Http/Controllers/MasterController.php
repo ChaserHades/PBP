@@ -17,7 +17,8 @@ class MasterController extends Controller
 
     public function kategoriIndex()
     {
-        $kategoris = Kategori::withCount('barang')->orderBy('nama')->paginate(15);
+        $kategoris = Kategori::withCount('barang')->orderBy('nama')->paginate(50)->withQueryString();
+
         return view('master.kategori', compact('kategoris'));
     }
 
@@ -57,7 +58,8 @@ class MasterController extends Controller
 
     public function ruanganIndex()
     {
-        $ruangans = Ruangan::withCount('barang')->orderBy('nama')->paginate(15);
+        $ruangans = Ruangan::withCount('barang')->orderBy('nama')->paginate(50)->withQueryString();
+
         return view('master.ruangan', compact('ruangans'));
     }
 

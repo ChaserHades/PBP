@@ -71,11 +71,9 @@
                 </table>
             </div>
 
-            @if($kategoris->hasPages())
-                <div class="p-3.5 border-t border-slate-800">
-                    {{ $kategoris->links() }}
-                </div>
-            @endif
+            <div class="p-3.5 border-t border-slate-800/80 bg-slate-900/40">
+                {{ $kategoris->links() }}
+            </div>
         </div>
     </div>
 </div>

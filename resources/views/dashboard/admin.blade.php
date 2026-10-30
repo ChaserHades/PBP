@@ -64,6 +64,131 @@
         </div>
     </div>
 
+    <!-- Graphical Dashboard: Analitik Inventaris & Operasional -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+        <div>
+            <h2 class="text-sm font-bold text-white">Analitik Inventaris & Operasional</h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">Grafik tren menampilkan data {{ $periode }} bulan terakhir. Klik batang kategori/ruangan untuk membuka daftar asetnya.</p>
+        </div>
+        <x-dashboard.period-filter :periode="$periode" />
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <x-dashboard.stat-card label="Barang Aktif" :value="number_format($asetAktif)" accent="border-l-emerald-500" hint="Tersedia + sedang dipinjam" />
+        <x-dashboard.stat-card label="Barang Nonaktif" :value="number_format($asetNonaktif)" accent="border-l-rose-500">
+            <span class="text-amber-400">{{ $asetMaintenance }} maintenance</span> &bull;
+            <span class="text-rose-400">{{ $asetTerhapus }} terhapus sementara</span>
+        </x-dashboard.stat-card>
+        <x-dashboard.stat-card label="Kategori / Ruangan" :value="number_format($totalKategori) . ' / ' . number_format($totalRuangan)" accent="border-l-sky-500" hint="Master data terdaftar" />
+        <x-dashboard.stat-card label="Nilai Aset Tercatat" :value="'Rp ' . number_format($totalNilaiAset, 0, ',', '.')" accent="border-l-violet-500" value-class="text-xl font-bold text-slate-200 font-mono" hint="Akumulasi harga beli aset aktif" />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <x-dashboard.chart-card
+            title="Status Aset"
+            subtitle="Komposisi status operasional seluruh aset aktif"
+            type="doughnut"
+            :labels="['Tersedia', 'Dipinjam', 'Maintenance']"
+            :datasets="[['label' => 'Jumlah Aset', 'data' => array_values($statusDistribusi), 'colors' => ['emerald', 'amber', 'rose']]]"
+            empty-message="Belum ada aset yang terdaftar."
+        />
+
+        <x-dashboard.chart-card
+            class="lg:col-span-2"
+            title="Tren Peminjaman"
+            subtitle="Jumlah transaksi peminjaman dan pengembalian per bulan"
+            type="line"
+            :labels="$bulanLabels"
+            :datasets="[
+                ['label' => 'Dipinjam', 'data' => $trenPeminjaman, 'color' => 'blue'],
+                ['label' => 'Dikembalikan', 'data' => $trenPengembalian, 'color' => 'emerald'],
+            ]"
+            empty-message="Belum ada transaksi peminjaman pada periode ini."
+        />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        @php
+            $kategoriTeratas = $kategoriDistribusi->take(10);
+            $ruanganLabels = $ruanganDistribusi->map(fn ($ruangan) => $ruangan->nama . ' (' . $ruangan->kode . ')')->all();
+            $ruanganData = $ruanganDistribusi->pluck('barang_count')->all();
+            $ruanganLinks = $ruanganDistribusi->map(fn ($ruangan) => route('barang.index', ['ruangan_id' => $ruangan->id]))->all();
+
+            if ($asetTanpaRuangan > 0) {
+                $ruanganLabels[] = 'Belum Ditentukan';
+                $ruanganData[] = $asetTanpaRuangan;
+                $ruanganLinks[] = null;
+            }
+        @endphp
+
+        <x-dashboard.chart-card
+            title="Distribusi Kategori"
+            subtitle="Jumlah aset per kategori (10 teratas)"
+            type="bar"
+            height="h-72"
+            :labels="$kategoriTeratas->pluck('nama')->all()"
+            :datasets="[['label' => 'Jumlah Aset', 'data' => $kategoriTeratas->pluck('barang_count')->all(), 'color' => 'blue']]"
+            :options="['horizontal' => true]"
+            :links="$kategoriTeratas->map(fn ($kategori) => route('barang.index', ['kategori_id' => $kategori->id]))->all()"
+            empty-message="Belum ada aset yang terhubung ke kategori."
+        />
+
+        <x-dashboard.chart-card
+            title="Distribusi Ruangan"
+            subtitle="Sebaran lokasi fisik aset per ruangan"
+            type="bar"
+            height="h-72"
+            :labels="$ruanganLabels"
+            :datasets="[['label' => 'Jumlah Aset', 'data' => $ruanganData, 'color' => 'sky']]"
+            :links="$ruanganLinks"
+            empty-message="Belum ada aset yang ditempatkan di ruangan."
+        />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <x-dashboard.chart-card
+            class="lg:col-span-2"
+            title="Tren Pengeluaran"
+            subtitle="Akumulasi nominal kas keluar per bulan"
+            type="line"
+            :labels="$bulanLabels"
+            :datasets="[['label' => 'Pengeluaran', 'data' => $trenPengeluaran, 'color' => 'violet']]"
+            :options="['area' => true, 'currency' => true]"
+            empty-message="Belum ada pengeluaran tercatat pada periode ini."
+        />
+
+        <x-dashboard.chart-card
+            title="Pengeluaran per Jenis"
+            subtitle="Komposisi nominal dalam periode terpilih"
+            type="doughnut"
+            :labels="['Pembelian Aset', 'Maintenance', 'Lainnya']"
+            :datasets="[['label' => 'Nominal', 'data' => array_values($pengeluaranPerJenis), 'colors' => ['blue', 'amber', 'slate']]]"
+            :options="['currency' => true]"
+            empty-message="Belum ada pengeluaran pada periode ini."
+        />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <x-dashboard.chart-card
+            class="lg:col-span-2"
+            title="Aset Masuk per Bulan"
+            subtitle="Jumlah aset baru berdasarkan tanggal kedatangan"
+            type="bar"
+            :labels="$bulanLabels"
+            :datasets="[['label' => 'Aset Masuk', 'data' => $trenAsetMasuk, 'color' => 'teal']]"
+            empty-message="Belum ada aset masuk pada periode ini."
+        />
+
+        <x-dashboard.chart-card
+            title="Kondisi Fisik Aset"
+            subtitle="Perbandingan kondisi baik dan rusak"
+            type="pie"
+            :labels="['Baik', 'Rusak Ringan', 'Rusak Berat']"
+            :datasets="[['label' => 'Jumlah Aset', 'data' => array_values($kondisiDistribusi), 'colors' => ['emerald', 'amber', 'rose']]]"
+            empty-message="Belum ada data kondisi aset."
+        />
+    </div>
+
     <!-- Asymmetrical Main Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <!-- Left Column: Operational Focus (2 cols) -->
@@ -124,6 +249,12 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if($recentPeminjaman->total() > 0)
+                    <div class="pt-3 mt-3 border-t border-slate-800/80">
+                        {{ $recentPeminjaman->links() }}
+                    </div>
+                @endif
             </div>
 
             <!-- Kondisi dan Distribusi Lab -->
@@ -211,8 +342,16 @@
                         <div class="text-center py-4 text-xs text-slate-500">Belum ada aktivitas.</div>
                     @endforelse
                 </div>
+
+                @if($recentLogs->total() > 0)
+                    <div class="pt-3 mt-3 border-t border-slate-800/80">
+                        {{ $recentLogs->links() }}
+                    </div>
+                @endif
             </div>
         </div>
     </div>
 </div>
+
+@vite('resources/js/dashboard.js')
 @endsection

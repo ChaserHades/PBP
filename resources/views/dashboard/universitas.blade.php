@@ -30,6 +30,109 @@
         </div>
     </div>
 
+    <!-- Graphical Dashboard: Visualisasi Laporan Eksekutif Universitas -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+        <div>
+            <h2 class="text-sm font-bold text-white">Visualisasi Laporan Inventaris & Pengeluaran</h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">Ringkasan analitik selama {{ $periode }} bulan terakhir untuk audit dan evaluasi pengadaan universitas.</p>
+        </div>
+        <x-dashboard.period-filter :periode="$periode" />
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <x-dashboard.stat-card label="Kondisi Aset Baik" :value="$persentaseKondisiBaik . '%'" accent="border-l-emerald-500" :hint="number_format($kondisiDistribusi['BAIK']) . ' dari ' . number_format($totalAset) . ' unit'" />
+        <x-dashboard.stat-card label="Perlu Perhatian" :value="number_format($kondisiDistribusi['RUSAK_RINGAN'] + $kondisiDistribusi['RUSAK_BERAT'])" accent="border-l-amber-500">
+            <span class="text-amber-400">{{ $kondisiDistribusi['RUSAK_RINGAN'] }} ringan</span> &bull;
+            <span class="text-rose-400">{{ $kondisiDistribusi['RUSAK_BERAT'] }} berat</span>
+        </x-dashboard.stat-card>
+        <x-dashboard.stat-card label="Kategori / Ruangan" :value="number_format($totalKategori) . ' / ' . number_format($totalRuangan)" accent="border-l-sky-500" hint="Sebaran klasifikasi & lokasi" />
+        <x-dashboard.stat-card label="Belanja ({{ $periode }} Bulan)" :value="'Rp ' . number_format($pengeluaranPeriode, 0, ',', '.')" accent="border-l-violet-500" value-class="text-xl font-bold text-slate-200 font-mono" hint="Realisasi pada periode terpilih" />
+    </div>
+
+    @php
+        $progdiLabels = $asetPerProgdi->map(fn ($item) => $item->progdi ?: 'Fakultas / Lab Bersama')->all();
+        $progdiUnitData = $asetPerProgdi->pluck('count')->map(fn ($count) => (int) $count)->all();
+        $progdiNilaiData = $asetPerProgdi->pluck('total_nilai')->map(fn ($nilai) => round((float) ($nilai ?? 0), 2))->all();
+        $kategoriTeratas = $kategoriStatistik->take(10);
+    @endphp
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <x-dashboard.chart-card
+            class="lg:col-span-2"
+            title="Tren Realisasi Pengeluaran"
+            subtitle="Akumulasi kas keluar per bulan beserta rincian jenis pengeluaran"
+            type="line"
+            :labels="$bulanLabels"
+            :datasets="[
+                ['label' => 'Total Pengeluaran', 'data' => $trenPengeluaran, 'color' => 'blue', 'fill' => true],
+                ['label' => 'Pembelian Aset', 'data' => $trenPengeluaranPerJenis['PEMBELIAN_ASET'], 'color' => 'emerald'],
+                ['label' => 'Maintenance', 'data' => $trenPengeluaranPerJenis['MAINTENANCE'], 'color' => 'amber'],
+            ]"
+            :options="['area' => true, 'currency' => true]"
+            empty-message="Belum ada realisasi pengeluaran pada periode ini."
+        />
+
+        <x-dashboard.chart-card
+            title="Komposisi Belanja"
+            subtitle="Proporsi pengeluaran per jenis pada periode terpilih"
+            type="doughnut"
+            :labels="['Pembelian Aset', 'Maintenance', 'Lainnya']"
+            :datasets="[['label' => 'Nominal', 'data' => array_values($pengeluaranPerJenis), 'colors' => ['emerald', 'amber', 'slate']]]"
+            :options="['currency' => true]"
+            empty-message="Belum ada data pengeluaran pada periode ini."
+        />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <x-dashboard.chart-card
+            title="Distribusi Inventaris per Kategori"
+            subtitle="Jumlah unit aset pada 10 kategori teratas"
+            type="bar"
+            height="h-72"
+            :labels="$kategoriTeratas->pluck('nama')->all()"
+            :datasets="[['label' => 'Jumlah Unit', 'data' => $kategoriTeratas->pluck('barang_count')->all(), 'color' => 'blue']]"
+            :options="['horizontal' => true]"
+            :links="$kategoriTeratas->map(fn ($kategori) => route('barang.index', ['kategori_id' => $kategori->id]))->all()"
+            empty-message="Belum ada aset yang diklasifikasikan ke kategori."
+        />
+
+        <x-dashboard.chart-card
+            title="Nilai Pengadaan per Program Studi"
+            subtitle="Akumulasi harga beli aset terdaftar per program studi"
+            type="bar"
+            height="h-72"
+            :labels="$progdiLabels"
+            :datasets="[['label' => 'Nilai Aset', 'data' => $progdiNilaiData, 'color' => 'emerald']]"
+            :options="['currency' => true]"
+            empty-message="Belum ada nilai pengadaan aset per program studi."
+        />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <x-dashboard.chart-card
+            class="lg:col-span-2"
+            title="Tren Penambahan Aset & Nilai Pengadaan"
+            subtitle="Unit aset baru (batang) dan nilai pengadaan (garis) per bulan"
+            type="bar"
+            :labels="$bulanLabels"
+            :datasets="[
+                ['label' => 'Unit Aset Baru', 'data' => $trenAsetMasuk, 'color' => 'sky', 'axis' => 'y'],
+                ['label' => 'Nilai Pengadaan (Rp)', 'data' => $trenNilaiAsetMasuk, 'color' => 'emerald', 'type' => 'line', 'axis' => 'y1'],
+            ]"
+            :options="['secondaryCurrency' => true]"
+            empty-message="Belum ada penambahan aset baru pada periode ini."
+        />
+
+        <x-dashboard.chart-card
+            title="Kondisi Fisik Inventaris"
+            subtitle="Kelayakan fisik seluruh unit aset terdaftar"
+            type="pie"
+            :labels="['Baik', 'Rusak Ringan', 'Rusak Berat']"
+            :datasets="[['label' => 'Jumlah Unit', 'data' => array_values($kondisiDistribusi), 'colors' => ['emerald', 'amber', 'rose']]]"
+            empty-message="Belum ada data kondisi fisik inventaris."
+        />
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- Distribusi per Program Studi -->
         <div class="panel-card p-5">
@@ -74,7 +177,15 @@
                     <div class="text-center py-4 text-xs text-slate-500">Belum ada catatan belanja.</div>
                 @endforelse
             </div>
+
+            @if($recentPengeluaran->total() > 0)
+                <div class="pt-3 mt-3 border-t border-slate-800/80">
+                    {{ $recentPengeluaran->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>
+
+@vite('resources/js/dashboard.js')
 @endsection

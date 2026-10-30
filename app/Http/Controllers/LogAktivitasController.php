@@ -17,7 +17,7 @@ class LogAktivitasController extends Controller
             abort(403, 'Akses Ditolak: Peran UNIVERSITAS tidak memiliki izin mengakses Audit Trail.');
         }
 
-        $query = LogAktivitas::with('user');
+        $query = LogAktivitas::with('user:id,name,role');
 
         // Jika TEKNISI: hanya melihat log dari pengguna ber-role TEKNISI
         if ($user->role === 'TEKNISI') {
@@ -36,7 +36,7 @@ class LogAktivitasController extends Controller
             $query->where('aksi', $request->aksi);
         }
 
-        $logs = $query->latest('created_at')->paginate(20)->withQueryString();
+        $logs = $query->latest('created_at')->paginate(50)->withQueryString();
 
         return view('log.index', compact('logs'));
     }

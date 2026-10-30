@@ -94,11 +94,9 @@
             </table>
         </div>
 
-        @if($barangs->hasPages())
-            <div class="p-3.5 border-t border-slate-800">
-                {{ $barangs->links() }}
-            </div>
-        @endif
+        <div class="p-3.5 border-t border-slate-800/80 bg-slate-900/40">
+            {{ $barangs->links() }}
+        </div>
     </div>
 </div>
 @endsection

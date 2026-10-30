@@ -84,7 +84,7 @@
                             </td>
                             <td>
                                 <span class="text-xs text-slate-300 font-medium">
-                                    {{ $exp->barang->count() }} unit
+                                    {{ $exp->barang_count ?? $exp->barang->count() }} unit
                                 </span>
                             </td>
                             <td class="text-right">
@@ -114,11 +114,9 @@
             </table>
         </div>
 
-        @if($pengeluarans->hasPages())
-            <div class="p-3.5 border-t border-slate-800">
-                {{ $pengeluarans->links() }}
-            </div>
-        @endif
+        <div class="p-3.5 border-t border-slate-800/80 bg-slate-900/40">
+            {{ $pengeluarans->links() }}
+        </div>
     </div>
 </div>
 @endsection

@@ -28,7 +28,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $credentials['email'])->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return back()->withInput($request->only('email'))->withErrors([
                 'email' => 'Kredensial yang diberikan tidak cocok dengan data kami.',
             ]);
@@ -124,7 +124,8 @@ class AuthController extends Controller
     protected function redirectBasedOnRole(User $user)
     {
         return match ($user->role) {
-            'SUPERADMIN', 'ADMIN' => redirect()->route('admin.dashboard'),
+            'SUPERADMIN' => redirect()->route('superadmin.dashboard'),
+            'ADMIN' => redirect()->route('admin.dashboard'),
             'TEKNISI' => redirect()->route('petugas.dashboard'),
             'UNIVERSITAS' => redirect()->route('universitas.dashboard'),
             default => redirect()->route('login'),

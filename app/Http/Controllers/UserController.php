@@ -6,7 +6,6 @@ use App\Models\LogAktivitas;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -26,11 +25,11 @@ class UserController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
-        $users = $query->latest()->paginate(15)->withQueryString();
+        $users = $query->latest()->paginate(50)->withQueryString();
 
         return view('users.index', compact('users'));
     }

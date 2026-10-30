@@ -9,22 +9,34 @@ use App\Models\Ruangan;
 use App\Services\LabelGeneratorService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class BarangController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Barang::with(['kategori', 'ruangan']);
+        $query = Barang::select([
+            'id',
+            'nama_barang',
+            'progdi',
+            'label',
+            'label_aset',
+            'sn',
+            'merek',
+            'kondisi',
+            'status',
+            'kategori_id',
+            'ruangan_id',
+            'created_at',
+        ])->with(['kategori:id,nama', 'ruangan:id,nama,kode']);
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama_barang', 'like', "%{$search}%")
-                  ->orWhere('label', 'like', "%{$search}%")
-                  ->orWhere('label_aset', 'like', "%{$search}%")
-                  ->orWhere('sn', 'like', "%{$search}%")
-                  ->orWhere('merek', 'like', "%{$search}%");
+                    ->orWhere('label', 'like', "%{$search}%")
+                    ->orWhere('label_aset', 'like', "%{$search}%")
+                    ->orWhere('sn', 'like', "%{$search}%")
+                    ->orWhere('merek', 'like', "%{$search}%");
             });
         }
 
@@ -44,17 +56,17 @@ class BarangController extends Controller
             $query->where('status', $request->status);
         }
 
-        $barangs = $query->latest()->paginate(15)->withQueryString();
-        $kategoris = Kategori::orderBy('nama')->get();
-        $ruangans = Ruangan::orderBy('nama')->get();
+        $barangs = $query->latest()->paginate(50)->withQueryString();
+        $kategoris = Kategori::orderBy('nama')->get(['id', 'nama']);
+        $ruangans = Ruangan::orderBy('nama')->get(['id', 'nama', 'kode']);
 
         return view('barang.index', compact('barangs', 'kategoris', 'ruangans'));
     }
 
     public function create()
     {
-        $kategoris = Kategori::orderBy('nama')->get();
-        $ruangans = Ruangan::orderBy('nama')->get();
+        $kategoris = Kategori::orderBy('nama')->get(['id', 'nama']);
+        $ruangans = Ruangan::orderBy('nama')->get(['id', 'nama', 'kode']);
 
         return view('barang.create', compact('kategoris', 'ruangans'));
     }
@@ -81,7 +93,7 @@ class BarangController extends Controller
             'ruangan_id' => 'nullable|exists:ruangan,id',
         ]);
 
-        $tanggalDatang = !empty($validated['tanggal_datang']) ? Carbon::parse($validated['tanggal_datang']) : Carbon::now();
+        $tanggalDatang = ! empty($validated['tanggal_datang']) ? Carbon::parse($validated['tanggal_datang']) : Carbon::now();
         $pembelianKe = $validated['pembelian_ke'] ?? null;
 
         // Auto-generate Label (format: KAT-MRK-MMYYYY-NNN misal FLAS-SAN-102026-001)
@@ -120,16 +132,24 @@ class BarangController extends Controller
 
     public function show($id)
     {
-        $barang = Barang::withTrashed()->with(['kategori', 'ruangan', 'pengeluaran', 'kelompokPembelian', 'peminjaman.user'])->findOrFail($id);
+        $barang = Barang::withTrashed()
+            ->with(['kategori:id,nama', 'ruangan:id,nama,kode', 'pengeluaran:id,judul,kode_pembelian', 'kelompokPembelian:id,kode'])
+            ->findOrFail($id);
 
-        return view('barang.show', compact('barang'));
+        $riwayatPeminjaman = $barang->peminjaman()
+            ->with('user:id,name')
+            ->latest('tanggal_pinjam')
+            ->paginate(50, ['*'], 'loans_page')
+            ->withQueryString();
+
+        return view('barang.show', compact('barang', 'riwayatPeminjaman'));
     }
 
     public function edit($id)
     {
         $barang = Barang::findOrFail($id);
-        $kategoris = Kategori::orderBy('nama')->get();
-        $ruangans = Ruangan::orderBy('nama')->get();
+        $kategoris = Kategori::orderBy('nama')->get(['id', 'nama']);
+        $ruangans = Ruangan::orderBy('nama')->get(['id', 'nama', 'kode']);
 
         return view('barang.edit', compact('barang', 'kategoris', 'ruangans'));
     }
@@ -189,7 +209,12 @@ class BarangController extends Controller
      */
     public function recentlyDeleted()
     {
-        $barangs = Barang::onlyTrashed()->with(['kategori', 'ruangan'])->latest('deleted_at')->paginate(15);
+        $barangs = Barang::onlyTrashed()
+            ->select(['id', 'nama_barang', 'label', 'kategori_id', 'ruangan_id', 'deleted_at'])
+            ->with(['kategori:id,nama', 'ruangan:id,nama,kode'])
+            ->latest('deleted_at')
+            ->paginate(50)
+            ->withQueryString();
 
         return view('barang.recently-deleted', compact('barangs'));
     }
@@ -201,7 +226,7 @@ class BarangController extends Controller
     {
         $barang = Barang::onlyTrashed()->findOrFail($id);
 
-        if (!$barang->isRecoverable()) {
+        if (! $barang->isRecoverable()) {
             return back()->with('error', 'Aset tidak dapat dipulihkan karena telah melampaui batas retensi 6 hari (EXPIRED).');
         }
 

@@ -137,11 +137,9 @@
             </table>
         </div>
 
-        @if($users->hasPages())
-            <div class="p-3.5 border-t border-slate-800/80 bg-slate-900/40">
-                {{ $users->links() }}
-            </div>
-        @endif
+        <div class="p-3.5 border-t border-slate-800/80 bg-slate-900/40">
+            {{ $users->links() }}
+        </div>
     </div>
 </div>
 @endsection
